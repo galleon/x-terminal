@@ -21,6 +21,7 @@
  */
 
 import { CompositeDisposable } from 'atom'
+import path from 'path'
 
 import { CONFIG_DATA } from './config'
 import { recalculateActive } from './utils'
@@ -174,30 +175,30 @@ class XTerminalSingleton {
 
 			// Add commands.
 			atom.commands.add('atom-workspace', {
-				'x-terminal:open': () => this.open(
+				'x-terminal:open': ({ target }) => this.open(
 					this.profilesSingleton.generateNewUri(),
-					this.addDefaultPosition(),
+					this.addDefaultPosition({ target }),
 				),
-				'x-terminal:open-center': () => this.openInCenterOrDock(atom.workspace),
-				'x-terminal:open-split-up': () => this.open(
+				'x-terminal:open-center': ({ target }) => this.openInCenterOrDock(atom.workspace, { target }),
+				'x-terminal:open-split-up': ({ target }) => this.open(
 					this.profilesSingleton.generateNewUri(),
-					{ split: 'up' },
+					{ split: 'up', target },
 				),
-				'x-terminal:open-split-down': () => this.open(
+				'x-terminal:open-split-down': ({ target }) => this.open(
 					this.profilesSingleton.generateNewUri(),
-					{ split: 'down' },
+					{ split: 'down', target },
 				),
-				'x-terminal:open-split-left': () => this.open(
+				'x-terminal:open-split-left': ({ target }) => this.open(
 					this.profilesSingleton.generateNewUri(),
-					{ split: 'left' },
+					{ split: 'left', target },
 				),
-				'x-terminal:open-split-right': () => this.open(
+				'x-terminal:open-split-right': ({ target }) => this.open(
 					this.profilesSingleton.generateNewUri(),
-					{ split: 'right' },
+					{ split: 'right', target },
 				),
-				'x-terminal:open-split-bottom-dock': () => this.openInCenterOrDock(atom.workspace.getBottomDock()),
-				'x-terminal:open-split-left-dock': () => this.openInCenterOrDock(atom.workspace.getLeftDock()),
-				'x-terminal:open-split-right-dock': () => this.openInCenterOrDock(atom.workspace.getRightDock()),
+				'x-terminal:open-split-bottom-dock': ({ target }) => this.openInCenterOrDock(atom.workspace.getBottomDock(), { target }),
+				'x-terminal:open-split-left-dock': ({ target }) => this.openInCenterOrDock(atom.workspace.getLeftDock(), { target }),
+				'x-terminal:open-split-right-dock': ({ target }) => this.openInCenterOrDock(atom.workspace.getRightDock(), { target }),
 				'x-terminal:toggle-profile-menu': () => this.toggleProfileMenu(),
 				'x-terminal:reorganize': () => this.reorganize('current'),
 				'x-terminal:reorganize-top': () => this.reorganize('top'),
@@ -255,6 +256,34 @@ class XTerminalSingleton {
 			this.profilesSingleton.generateNewUri(),
 			options,
 		)
+	}
+
+	getPath (target) {
+		if (!target) {
+			return atom.project.getPaths()[0]
+		}
+
+		const treeView = target.closest('.tree-view')
+		if (treeView) {
+			// called from treeview
+			const selected = treeView.querySelector('.selected > .list-item > .name, .selected > .name')
+			if (selected) {
+				return selected.dataset.path
+			}
+			return null
+		}
+
+		const tab = target.closest('.tab-bar > .tab')
+		if (tab) {
+			// called from tab
+			const title = tab.querySelector('.title')
+			if (title && title.dataset.path) {
+				return title.dataset.path
+			}
+			return null
+		}
+
+		return null
 	}
 
 	refitAllTerminals () {
@@ -328,6 +357,12 @@ class XTerminalSingleton {
 			relaunchTerminalOnStartup = this.profilesSingleton.getBaseProfile().relaunchTerminalOnStartup
 			if (!relaunchTerminalOnStartup) {
 				url.searchParams.set('relaunchTerminalOnStartup', false)
+			}
+		}
+		if (options.target) {
+			const targetPath = this.getPath(options.target)
+			if (targetPath) {
+				url.searchParams.set('target', targetPath)
 			}
 		}
 		return atom.workspace.open(url.href, options)

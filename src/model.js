@@ -45,6 +45,7 @@ class XTerminalModel {
 		this.options = options
 		this.uri = this.options.uri
 		const url = new URL(this.uri)
+		this.targetPath = url.searchParams.get('target')
 		this.sessionId = url.host
 		this.profilesSingleton = XTerminalProfilesSingleton.instance
 		this.profile = this.profilesSingleton.createProfileDataFromUri(this.uri)
@@ -71,18 +72,26 @@ class XTerminalModel {
 	}
 
 	async initialize () {
+		let cwd
+
+		if (this.targetPath) {
+			cwd = this.targetPath
+		} else {
+			const previousActiveItem = atom.workspace.getActivePaneItem()
+			if (typeof previousActiveItem !== 'undefined' && typeof previousActiveItem.getPath === 'function') {
+				cwd = previousActiveItem.getPath()
+			} else {
+				cwd = this.profile.projectCwd ? atom.project.getPaths()[0] : this.profile.cwd
+			}
+			const dir = atom.project.relativizePath(cwd)[0]
+			if (dir) {
+				// Use project paths whenever they are available by default.
+				this.profile.cwd = dir
+				return
+			}
+		}
+
 		const baseProfile = this.profilesSingleton.getBaseProfile()
-		const previousActiveItem = atom.workspace.getActivePaneItem()
-		let cwd = this.profile.projectCwd ? atom.project.getPaths()[0] : this.profile.cwd
-		if (typeof previousActiveItem !== 'undefined' && typeof previousActiveItem.getPath === 'function') {
-			cwd = previousActiveItem.getPath()
-		}
-		const dir = atom.project.relativizePath(cwd)[0]
-		if (dir) {
-			// Use project paths whenever they are available by default.
-			this.profile.cwd = dir
-			return
-		}
 		if (!cwd) {
 			this.profile.cwd = baseProfile.cwd
 			return
